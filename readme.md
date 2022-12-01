@@ -1,7 +1,10 @@
 This program determines a DXCC from it's callsign with the help of the country files from AD1C.
 Get the Big CTY file from here: https://www.country-files.com/category/big-cty/
 
-Ported version from PERL to PHP. Based on the works by Fabian Kurz, DJ5CW: http://fkurz.net/ham/dxcc.html
+Ported version from PERL to PHP. 
+
+Based on the works by Fabian Kurz, DJ5CW: http://fkurz.net/ham/dxcc.html
+
 Source here: https://git.fkurz.net/dj1yfk/dxcc
 
 The following changes has been made to get it to work in PHP:
