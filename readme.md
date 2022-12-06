@@ -18,3 +18,5 @@ The following changes has been made to get it to work in PHP:
     4. Regex fix: $csadditions = "/(^P\$)|(^M{1,2}\$)|(^AM\$)|(^A\$)/";
     
     5. Regex fix: line 527: /\s+([*A-Za-z0-9\/]+):\s+$/ -> /\s+([*A-Za-z0-9\/]+):+$/
+
+Demo here: https://la8aja.com/dxcc/
