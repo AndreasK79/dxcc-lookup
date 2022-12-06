@@ -121,7 +121,11 @@ function dxcc($testcall) {
         $testcall = "3D2CR";                                        # will match with Conway
     } elseif (preg_match('/(^LZ\/)|(\/LZ[1-9]?$)/', $testcall)) {   # LZ/ is LZ0 by DXCC but this is VP8h
         $testcall = "LZ";
-    } elseif (preg_match('/(^KG4)[A-Z09]{3,}/', $testcall)) {       # KG4/ and KG4 5 char calls are Guantanamo Bay. If 6 char, it is USA
+    } elseif (preg_match('/(^KG4)[A-Z09]{3}/', $testcall)) {       # KG4/ and KG4 5 char calls are Guantanamo Bay. If 6 char, it is USA
+        $testcall = "K";
+    } elseif (preg_match('/(^KG4)[A-Z09]{2}/', $testcall)) {       # KG4/ and KG4 5 char calls are Guantanamo Bay. If 6 char, it is USA
+        $testcall = "KG4";
+    } elseif (preg_match('/(^KG4)[A-Z09]{1}/', $testcall)) {       # KG4/ and KG4 5 char calls are Guantanamo Bay. If 6 char, it is USA
         $testcall = "K";
     } elseif (preg_match('/\w\/\w/', $testcall)) {                  # check if the callsign has a "/"
         $testcall = wpx($testcall, 1) . "AA";                       # use the wpx prefix instead, which may
