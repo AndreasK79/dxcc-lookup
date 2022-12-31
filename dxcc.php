@@ -236,7 +236,7 @@ function wpx($testcall, $i) {
     $c = '';
 
     $lidadditions = '/^QRP\$|^LGT\$/';
-    $csadditions = '/(^P\$)|(^M{1,2}\$)|(^AM\$)|(^A\$)/';
+    $csadditions = '/(^P$)|(^M{1,2}$)|(^AM$)|(^A$)/';
 
     # First check if the call is in the proper format, A/B/C where A and C
     # are optional (prefix of guest country and P, MM, AM etc) and B is the
@@ -327,7 +327,7 @@ function wpx($testcall, $i) {
                 //var_dump($prefix);
             } elseif (preg_match($csadditions, $c)) {
                 preg_match('/(.+\d)[A-Z]*/', $b, $matches);     # Known attachment -> like Case 1.1
-                $prefix = $matches[1][0];
+                $prefix = $matches[1];
             } elseif (preg_match('/^\d\d+$/', $c)) {            # more than 2 numbers -> ignore
                 preg_match('/(.+\d)[A-Z]* /', $b, $matches);    # see above
                 $prefix = $matches[1][0];
