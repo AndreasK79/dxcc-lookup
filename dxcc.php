@@ -315,7 +315,7 @@ function wpx($testcall, $i) {
                 $prefix = substr($b, 0, 2) . "0";               # first two + 0
             }
         } elseif (($a == null) && (isset($c))) {                # Case 2, CALL/X
-            if (preg_match('/^(\d)$/', $c)) {                   # Case 2.1, number
+            if (preg_match('/^(\d)/', $c)) {                    # Case 2.1, number
                 preg_match('/(.+\d)[A-Z]*/', $b, $matches);     # regular Prefix in $1
                 # Here we need to find out how many digits there are in the
                 # prefix, because for example A45XR/0 is A40. If there are 2
