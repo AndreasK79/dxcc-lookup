@@ -116,7 +116,7 @@
             <div class="result">
                 <?php
                 if (isset($_GET['cmd']) && ($_GET['cmd'] == "check")) {
-                    validatecallsign($_POST['callsign'], $_POST['mycallsign']);
+                    validatecallsign(trim($_POST['callsign']), trim($_POST['mycallsign']));
                 } ?>
             </div>
         </div>
