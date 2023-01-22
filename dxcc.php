@@ -80,14 +80,14 @@ function printresult($dxccinfo, $dist, $callsign, $mycallsign) {
             <tr>
                 <td><?php echo strtoupper($callsign); ?></td>
                 <?php if ($mycallsign) echo '<td>' . strtoupper($mycallsign) . '</td>'; ?>
-                <td><?php echo $dxccinfo[0]; ?></td>
-                <td><?php echo $dxccinfo[7]; ?></td>
-                <td><?php echo $dxccinfo[1]; ?></td>
-                <td><?php echo $dxccinfo[2]; ?></td>
-                <td><?php echo $dxccinfo[3]; ?></td>
-                <td><?php echo $dxccinfo[4]; ?></td>
-                <td><?php echo $dxccinfo[5]; ?></td>
-                <td><?php echo $dxccinfo[6]; ?></td>
+                <td><?php echo empty($dxccinfo[0]) ? 'None' : $dxccinfo[0]; ?></td>
+                <td><?php echo empty($dxccinfo[7]) ? 'None' : $dxccinfo[7]; ?></td>
+                <td><?php echo empty($dxccinfo[1]) ? '' : $dxccinfo[1]; ?></td>
+                <td><?php echo empty($dxccinfo[2]) ? '' : $dxccinfo[2]; ?></td>
+                <td><?php echo empty($dxccinfo[3]) ? '' : $dxccinfo[3]; ?></td>
+                <td><?php echo empty($dxccinfo[4]) ? '' : $dxccinfo[4]; ?></td>
+                <td><?php echo empty($dxccinfo[5]) ? '' : $dxccinfo[5]; ?></td>
+                <td><?php echo empty($dxccinfo[6]) ? '' : $dxccinfo[6]; ?></td>
                 <?php if ($mycallsign) echo '<td>' . round($dist[0], 0) . '</td>'; ?>
                 <?php if ($mycallsign) echo '<td>' . round($dist[1], 0) . '</td>'; ?>
             </tr>
@@ -128,8 +128,13 @@ function dxcc($testcall) {
     } elseif (preg_match('/(^KG4)[A-Z09]{1}/', $testcall)) {       # KG4/ and KG4 5 char calls are Guantanamo Bay. If 6 char, it is USA
         $testcall = "K";
     } elseif (preg_match('/\w\/\w/', $testcall)) {                  # check if the callsign has a "/"
-        $testcall = wpx($testcall, 1) . "AA";                       # use the wpx prefix instead, which may
+        $testcall = wpx($testcall, 1);                              
+        if ($testcall == '') {
+            return '';
+        } else {
+            $testcall = $testcall . "AA";                             # use the wpx prefix instead, which may
                                                                     # intentionally be wrong, see &wpx!
+        }
     }
 
     $letter = substr($testcall, 0, 1);
@@ -235,8 +240,9 @@ function wpx($testcall, $i) {
     $b = '';
     $c = '';
 
-    $lidadditions = '/^QRP\$|^LGT\$/';
-    $csadditions = '/(^P$)|(^M{1,2}$)|(^AM$)|(^A$)/';
+    $lidadditions = '/^QRP|^LGT/';
+    $csadditions = '/^P$|^R$|^A$|^M$/';
+    $noneadditions = '/^MM$|^AM$/';
 
     # First check if the call is in the proper format, A/B/C where A and C
     # are optional (prefix of guest country and P, MM, AM etc) and B is the
@@ -328,6 +334,8 @@ function wpx($testcall, $i) {
             } elseif (preg_match($csadditions, $c)) {
                 preg_match('/(.+\d)[A-Z]*/', $b, $matches);     # Known attachment -> like Case 1.1
                 $prefix = $matches[1];
+            } elseif (preg_match($noneadditions, $c)) {
+               return '';
              } elseif (preg_match('/^\d\d+$/', $c)) {            # more than 2 numbers -> ignore
                 preg_match('/(.+\d)[A-Z]* /', $b, $matches);    # see above
                 $prefix = $matches[1][0];
@@ -338,6 +346,8 @@ function wpx($testcall, $i) {
                     $prefix = $c . "0";
                 }
             }
+        } elseif (($a) && (preg_match($noneadditions, $c))) {                # Case 2.1, X/CALL/X ie TF/DL2NWK/MM - DXCC none
+            return '';
         } elseif ($a) {
             # $a contains the prefix we want
             if (preg_match('/\d$/', $a)) {                      # ends in number -> good prefix
