@@ -258,7 +258,7 @@ function wpx($testcall, $i) {
             $a = substr($a, 0, -1); # Remove the / at the end 
         }
         if ($c) {
-            $c = substr($c, 1,); # Remove the / at the beginning
+            $c = substr($c, 1); # Remove the / at the beginning
         };
 
         # In some cases when there is no part A but B and C, and C is longer than 2
@@ -328,7 +328,7 @@ function wpx($testcall, $i) {
             } elseif (preg_match($csadditions, $c)) {
                 preg_match('/(.+\d)[A-Z]*/', $b, $matches);     # Known attachment -> like Case 1.1
                 $prefix = $matches[1];
-            } elseif (preg_match('/^\d\d+$/', $c)) {            # more than 2 numbers -> ignore
+             } elseif (preg_match('/^\d\d+$/', $c)) {            # more than 2 numbers -> ignore
                 preg_match('/(.+\d)[A-Z]* /', $b, $matches);    # see above
                 $prefix = $matches[1][0];
             } else {                                            # Must be a Prefix!
