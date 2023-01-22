@@ -310,7 +310,7 @@ function wpx($testcall, $i) {
         if (($a == null) && ($c == null)) {                     # Case 1
             if (preg_match('/\d/', $b)) {                       # Case 1.1, contains number
                 preg_match('/(.+\d)[A-Z]*/', $b, $matches);     # Prefix is all but the last
-                $prefix = $matches[1][0];                       # Letters
+                $prefix = $matches[1];                          # Letters
             } else {                                            # Case 1.2, no number 
                 $prefix = substr($b, 0, 2) . "0";               # first two + 0
             }
