@@ -1,218 +1,233 @@
 <?php
-# dxcc - determining the DXCC country of a callsign
+# dxcc class - determining the DXCC country of a callsign
 # 
-# Copyright (C) 2007-2019  Fabian Kurz, DJ1YFK
-# Ported to PHP by LA8AJA in 2021
+# Copyright (C) 2023 by LA8AJA in 2023
 #
-# This program is free software; you can redistribute it and/or modify 
-# it under the terms of the GNU General Public License as published by 
-# the Free Software Foundation; either version 2 of the License, or 
-# (at your option) any later version.
+# Based on original works by DJ5CW (DJ1YFK)
 #
-# This program is distributed in the hope that it will be useful, 
-# but WITHOUT ANY WARRANTY; without even the implied warranty of 
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License 
-# along with this program; if not, write to the 
-# Free Software Foundation, Inc., 59 Temple Place - Suite 330, 
-# Boston, MA 02111-1307, USA. 
+class dxcc {
+    protected $dxcc = array();      // array with main prefix -> (CQZ, ITUZ, ...) 
+    protected $fullcalls = array(); // array with full calls (=DL1XYZ)
+    protected $prefixes = array();  // array with main prefix -> (all, prefixes,..)
 
-function validatecallsign($callsign, $mycallsign) {
-    if (preg_match('/[0-9A-Za-z\/]/', $callsign)) {
-        $result = dxcc($callsign);
-        $dist = '';
-        if ($mycallsign != '' && preg_match('/[0-9A-Za-z\/]/', $mycallsign)) {
-            $mycallresult = dxcc($mycallsign);
-            $dist = qrbqtf($mycallresult[4], $mycallresult[5], $result[4], $result[5]);
-        }
-        printresult($result, $dist, $callsign, $mycallsign);
-    } else {
-        echo "Not a valid call";
-    }
-}
-
-function qrbqtf($mylat, $mylon, $hislat, $hislon) {
-    $PI = 3.14159265;
-    $z = 180 / $PI;
-
-    $g = acos(sin($mylat / $z) * sin($hislat / $z) + cos($mylat / $z) * cos($hislat / $z) * cos(($hislon - $mylon) / $z));
-
-    $dist = $g * 6371;
-    $dir = 0;
-
-    if ($dist != 0) {
-        $dir = acos((sin($hislat / $z) - sin($mylat / $z) * cos($g)) / (cos($mylat / $z)  * sin($g))) * 360 / (2 * $PI);
+    public function __construct() {
+        $this->read_cty();
     }
 
-    if (sin(($hislon - $mylon) / $z) < 0) {
-        $dir = 360 - $dir;
-    }
-    $dir = 360 - $dir;
-
-    $result[0] = $dist;
-    $result[1] = $dir;
-
-    return $result;
-}
-
-function printresult($dxccinfo, $dist, $callsign, $mycallsign) {
-    ?>
-    <table class="styled-table">
-        <thead>
-        <tr>
-            <th>Callsign</th>
-            <?php if ($mycallsign) echo '<th>Mycallsign</th>'; ?>
-            <th>Country Name</th>
-            <th>Prefix</th>
-            <th>CQ Zone</th>
-            <th>ITU Zone</th>
-            <th>Continent</th>
-            <th>Latitude</th>
-            <th>Longitude</th>
-            <th>UTC shift</th>
-            <?php if ($mycallsign) echo '<th>Distance (km)</th>'; ?>
-            <?php if ($mycallsign) echo '<th>Bearing (°)</th>'; ?>
-        </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td><?php echo strtoupper($callsign); ?></td>
-                <?php if ($mycallsign) echo '<td>' . strtoupper($mycallsign) . '</td>'; ?>
-                <td><?php echo empty($dxccinfo[0]) ? 'None' : $dxccinfo[0]; ?></td>
-                <td><?php echo empty($dxccinfo[7]) ? 'None' : $dxccinfo[7]; ?></td>
-                <td><?php echo empty($dxccinfo[1]) ? '' : $dxccinfo[1]; ?></td>
-                <td><?php echo empty($dxccinfo[2]) ? '' : $dxccinfo[2]; ?></td>
-                <td><?php echo empty($dxccinfo[3]) ? '' : $dxccinfo[3]; ?></td>
-                <td><?php echo empty($dxccinfo[4]) ? '' : $dxccinfo[4]; ?></td>
-                <td><?php echo empty($dxccinfo[5]) ? '' : $dxccinfo[5]; ?></td>
-                <td><?php echo empty($dxccinfo[6]) ? '' : $dxccinfo[6]; ?></td>
-                <?php if ($mycallsign) echo '<td>' . round($dist[0], 0) . '</td>'; ?>
-                <?php if ($mycallsign) echo '<td>' . round($dist[1], 0) . '</td>'; ?>
-            </tr>
-        </tbody>
-    </table>
-    <?php
-}
-
-function dxcc($testcall) {
-    $matchchars = 0;
-    $matchprefix = '';
-    $fullcalls = array();          # hash of full calls (=DL1XYZ)
-    $prefixes = array();           # hash of arrays  main prefix -> (all, prefixes,..)
-    $dxcc = array();               # hash of arrays  main prefix -> (CQZ, ITUZ, ...)
-    $zones = '';                   # annoying zone exceptions
-    $goodzone = '';
-    $letter = '';
-
-    read_cty($dxcc, $fullcalls, $prefixes);
-
-    $testcall = strtoupper($testcall);
-
-    if (in_array($testcall, $fullcalls)) {                          # direct match with "="
-                                                                    # do nothing! don't try to resolve WPX, it's a full
-                                                                    # call and will match correctly even if it contains a /
-    } elseif (preg_match('/(^OH\/)|(\/OH[1-9]?$)/', $testcall)) {   # non-Aland prefix!
-        $testcall = "OH";                                           # make callsign OH = finland
-    } elseif (preg_match('/(^3D2R)|(^3D2.+\/R)/', $testcall)) {     # seems to be from Rotuma
-        $testcall = "3D2RR";                                        # will match with Rotuma
-    } elseif (preg_match('/^3D2C/', $testcall)) {                   # seems to be from Conway Reef
-        $testcall = "3D2CR";                                        # will match with Conway
-    } elseif (preg_match('/(^LZ\/)|(\/LZ[1-9]?$)/', $testcall)) {   # LZ/ is LZ0 by DXCC but this is VP8h
-        $testcall = "LZ";
-    } elseif (preg_match('/(^KG4)[A-Z09]{3}/', $testcall)) {       # KG4/ and KG4 5 char calls are Guantanamo Bay. If 6 char, it is USA
-        $testcall = "K";
-    } elseif (preg_match('/(^KG4)[A-Z09]{2}/', $testcall)) {       # KG4/ and KG4 5 char calls are Guantanamo Bay. If 6 char, it is USA
-        $testcall = "KG4";
-    } elseif (preg_match('/(^KG4)[A-Z09]{1}/', $testcall)) {       # KG4/ and KG4 5 char calls are Guantanamo Bay. If 6 char, it is USA
-        $testcall = "K";
-    } elseif (preg_match('/\w\/\w/', $testcall)) {                  # check if the callsign has a "/"
-        $testcall = wpx($testcall, 1);                              
-        if ($testcall == '') {
-            return '';
+    function validatecallsign($callsign, $mycallsign) {
+        if (preg_match('/[0-9A-Za-z\/]/', $callsign)) {
+            $result = $this->dxcc($callsign);
+            $dist = '';
+            if ($mycallsign != '' && preg_match('/[0-9A-Za-z\/]/', $mycallsign)) {
+                $mycallresult = $this->dxcc($mycallsign);
+                $dist = $this->qrbqtf($mycallresult[4], $mycallresult[5], $result[4], $result[5]);
+            }
+            $this->printresult($result, $dist, $callsign, $mycallsign);
         } else {
-            $testcall = $testcall . "AA";                             # use the wpx prefix instead, which may
-                                                                    # intentionally be wrong, see &wpx!
+            echo "Not a valid call";
         }
     }
 
-    $letter = substr($testcall, 0, 1);
+    public function calltester($callsign) {
+        return $this->dxcc($callsign);
+    }
 
-    foreach ($prefixes as $mainprefix => $value) {                  # Runs through the DXCC list
-        foreach ($prefixes[$mainprefix] as $test) {
+    function qrbqtf($mylat, $mylon, $hislat, $hislon) {
+        $PI = 3.14159265;
+        $z = 180 / $PI;
 
-            $len = strlen($test);
-            if ($letter != substr($test, 0, 1)) {                   # Continues if no match, will speed up things
-                continue;
-            }
-            $zones = '';
+        $g = acos(sin($mylat / $z) * sin($hislat / $z) + cos($mylat / $z) * cos($hislat / $z) * cos(($hislon - $mylon) / $z));
 
-            if (($len > 5) && ((strpos($test, '(') !== false) || (strpos($test, '[') !== false))) { # extra zones
-                preg_match('/^([A-Z0-9\/]+)([\[\(].+)/', $test, $matches);
-                if (isset($matches[2])) {
-                    $zones .= $matches[2];
+        $dist = $g * 6371;
+        $dir = 0;
+
+        if ($dist != 0) {
+            $dir = acos((sin($hislat / $z) - sin($mylat / $z) * cos($g)) / (cos($mylat / $z)  * sin($g))) * 360 / (2 * $PI);
+        }
+
+        if (sin(($hislon - $mylon) / $z) < 0) {
+            $dir = 360 - $dir;
+        }
+        $dir = 360 - $dir;
+
+        $result[0] = $dist;
+        $result[1] = $dir;
+
+        return $result;
+    }
+
+    function printresult($dxccinfo, $dist, $callsign, $mycallsign) {
+        ?>
+        <table class="styled-table">
+            <thead>
+            <tr>
+                <th>Callsign</th>
+                <?php if ($mycallsign) echo '<th>Mycallsign</th>'; ?>
+                <th>Country Name</th>
+                <th>Prefix</th>
+                <th>CQ Zone</th>
+                <th>ITU Zone</th>
+                <th>Continent</th>
+                <th>Latitude</th>
+                <th>Longitude</th>
+                <th>UTC shift</th>
+                <?php if ($mycallsign) echo '<th>Distance (km)</th>'; ?>
+                <?php if ($mycallsign) echo '<th>Bearing (°)</th>'; ?>
+            </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><?php echo strtoupper($callsign); ?></td>
+                    <?php if ($mycallsign) echo '<td>' . strtoupper($mycallsign) . '</td>'; ?>
+                    <td><?php echo empty($dxccinfo[0]) ? 'None' : $dxccinfo[0]; ?></td>
+                    <td><?php echo empty($dxccinfo[7]) ? 'None' : $dxccinfo[7]; ?></td>
+                    <td><?php echo empty($dxccinfo[1]) ? '' : $dxccinfo[1]; ?></td>
+                    <td><?php echo empty($dxccinfo[2]) ? '' : $dxccinfo[2]; ?></td>
+                    <td><?php echo empty($dxccinfo[3]) ? '' : $dxccinfo[3]; ?></td>
+                    <td><?php echo empty($dxccinfo[4]) ? '' : $dxccinfo[4]; ?></td>
+                    <td><?php echo empty($dxccinfo[5]) ? '' : $dxccinfo[5]; ?></td>
+                    <td><?php echo empty($dxccinfo[6]) ? '' : $dxccinfo[6]; ?></td>
+                    <?php if ($mycallsign) echo '<td>' . round($dist[0], 0) . '</td>'; ?>
+                    <?php if ($mycallsign) echo '<td>' . round($dist[1], 0) . '</td>'; ?>
+                </tr>
+            </tbody>
+        </table>
+        <?php
+    }
+
+    function dxcc($testcall) {
+        $matchchars = 0;
+        $matchprefix = '';
+        $zones = '';                   # annoying zone exceptions
+        $goodzone = '';
+        $letter = '';
+        $csadditions = '/^P$|^R$|^A$|^M$|^LH$|^SK$/';
+    
+        $testcall = strtoupper($testcall);
+    
+        if (in_array($testcall, $this->fullcalls)) {                    # direct match with "="
+                                                                        # do nothing! don't try to resolve WPX, it's a full
+                                                                        # call and will match correctly even if it contains a /
+        } elseif (preg_match('/(^OH\/)|(\/OH[1-9]?$)/', $testcall)) {   # non-Aland prefix!
+            $testcall = "OH";                                           # make callsign OH = finland
+        } elseif (preg_match('/(^3D2R)|(^3D2.+\/R)/', $testcall)) {     # seems to be from Rotuma
+            $testcall = "3D2RR";                                        # will match with Rotuma
+        } elseif (preg_match('/^3D2C/', $testcall)) {                   # seems to be from Conway Reef
+            $testcall = "3D2CR";                                        # will match with Conway
+        } elseif (preg_match('/(^LZ\/)|(\/LZ[1-9]?$)/', $testcall)) {   # LZ/ is LZ0 by DXCC but this is VP8h
+            $testcall = "LZ";
+        } elseif (preg_match('/(^KG4)[A-Z09]{3}/', $testcall)) {        # KG4/ and KG4 5 char calls are Guantanamo Bay. If 6 char, it is USA
+            $testcall = "K";
+        } elseif (preg_match('/(^KG4)[A-Z09]{2}/', $testcall)) {        # KG4/ and KG4 5 char calls are Guantanamo Bay. If 6 char, it is USA
+            $testcall = "KG4";
+        } elseif (preg_match('/(^KG4)[A-Z09]{1}/', $testcall)) {        # KG4/ and KG4 5 char calls are Guantanamo Bay. If 6 char, it is USA
+            $testcall = "K";
+        } elseif (preg_match('/\w\/\w/', $testcall)) {                  # check if the callsign has a "/"
+            if (preg_match_all('/^((\d|[A-Z])+\/)?((\d|[A-Z]){3,})(\/(\d|[A-Z])+)?(\/(\d|[A-Z])+)?$/', $testcall, $matches)) {
+                $prefix = $matches[1][0];
+                $callsign = $matches[3][0];
+                $suffix = $matches[5][0];
+                
+                if ($prefix) {
+                    $prefix = substr($prefix, 0, -1); # Remove the / at the end 
                 }
-                $len = strlen($matches[1]);
+                if ($suffix) {
+                    $suffix = substr($suffix, 1); # Remove the / at the beginning
+                };
+                if (preg_match($csadditions, $suffix)) {
+                    if ($prefix) {
+                        $testcall = $prefix;  
+                    } else {
+                        $testcall = $callsign;
+                    }
+                } else {
+                    $testcall = $this->wpx($testcall, 1);                              
+                    if ($testcall == '') {
+                        return '';
+                    }
+                    
+                    $testcall = $testcall . "AA";                             # use the wpx prefix instead, which may
+                                                                                # intentionally be wrong, see &wpx!
+                }
             }
-
-            if ((substr($testcall, 0, $len) == substr($test, 0, $len)) && ($matchchars <= $len)) {
-                $matchchars = $len;
-                $matchprefix = $mainprefix;
-                $goodzone = $zones;
+        }
+    
+        $letter = substr($testcall, 0, 1);
+    
+        foreach ($this->prefixes as $mainprefix => $value) {                  # Runs through the DXCC list
+            foreach ($this->prefixes[$mainprefix] as $test) {
+    
+                $len = strlen($test);
+                if ($letter != substr($test, 0, 1)) {                   # Continues if no match, will speed up things
+                    continue;
+                }
+                $zones = '';
+    
+                if (($len > 5) && ((strpos($test, '(') !== false) || (strpos($test, '[') !== false))) { # extra zones
+                    preg_match('/^([A-Z0-9\/]+)([\[\(].+)/', $test, $matches);
+                    if (isset($matches[2])) {
+                        $zones .= $matches[2];
+                    }
+                    $len = strlen($matches[1]);
+                }
+    
+                if ((substr($testcall, 0, $len) == substr($test, 0, $len)) && ($matchchars <= $len)) {
+                    $matchchars = $len;
+                    $matchprefix = $mainprefix;
+                    $goodzone = $zones;
+                }
             }
         }
-    }
-
-    $mydxcc = array();                                        # save typing work
-
-    if (array_key_exists($matchprefix, $dxcc)) {
-        $mydxcc = $dxcc[$matchprefix];
-    } else {
-        $mydxcc = array_fill(1, 6, 0);
-        $mydxcc[0] = 'Unknown';
-    }
-
-    # Different zones?
-    if ($goodzone) {
-        if (preg_match('/\((\d+)\)/', $goodzone, $matches)) { # CQ-Zone in ()
-            $mydxcc[1] = $matches[1];
+    
+        $mydxcc = array();                                        # save typing work
+    
+        if (array_key_exists($matchprefix, $this->dxcc)) {
+            $mydxcc = $this->dxcc[$matchprefix];
+        } else {
+            $mydxcc = array_fill(1, 6, 0);
+            $mydxcc[0] = 'Unknown';
         }
-        if (preg_match('/\[(\d+)\]/', $goodzone, $matches)) { # ITU-Zone in []
-            $mydxcc[2] = $matches[1];
+    
+        # Different zones?
+        if ($goodzone) {
+            if (preg_match('/\((\d+)\)/', $goodzone, $matches)) { # CQ-Zone in ()
+                $mydxcc[1] = $matches[1];
+            }
+            if (preg_match('/\[(\d+)\]/', $goodzone, $matches)) { # ITU-Zone in []
+                $mydxcc[2] = $matches[1];
+            }
         }
+    
+        # cty.dat has special entries for WAE countries which are not separate DXCC
+        # countries. Those start with a "*", for example *TA1. Those have to be changed
+        # to the proper DXCC. Since there are opnly a few of them, it is hardcoded in
+        # here.
+    
+        if (preg_match('/^\* /', $testcall)) { # WAE country!
+            if ($mydxcc[7] == '*TA1') {
+                $mydxcc[7] = "TA";
+            }        # Turkey
+            if ($mydxcc[7] == '*4U1V') {
+                $mydxcc[7] = "OE";
+            }    # 4U1VIC is in OE..
+            if ($mydxcc[7] == '*GM/s') {
+                $mydxcc[7] = "GM";
+            }    # Shetlands
+            if ($mydxcc[7] == '*IG9') {
+                $mydxcc[7] = "I";
+            }        # African Italy
+            if ($mydxcc[7] == '*IT9') {
+                $mydxcc[7] = "I";
+            }        # Sicily
+            if ($mydxcc[7] == '*JW/b') {
+                $mydxcc[7] = "JW";
+            }    # Bear Island
+        }
+    
+        return $mydxcc;
     }
 
-    # cty.dat has special entries for WAE countries which are not separate DXCC
-    # countries. Those start with a "*", for example *TA1. Those have to be changed
-    # to the proper DXCC. Since there are opnly a few of them, it is hardcoded in
-    # here.
-
-    if (preg_match('/^\* /', $testcall)) { # WAE country!
-        if ($mydxcc[7] == '*TA1') {
-            $mydxcc[7] = "TA";
-        }        # Turkey
-        if ($mydxcc[7] == '*4U1V') {
-            $mydxcc[7] = "OE";
-        }    # 4U1VIC is in OE..
-        if ($mydxcc[7] == '*GM/s') {
-            $mydxcc[7] = "GM";
-        }    # Shetlands
-        if ($mydxcc[7] == '*IG9') {
-            $mydxcc[7] = "I";
-        }        # African Italy
-        if ($mydxcc[7] == '*IT9') {
-            $mydxcc[7] = "I";
-        }        # Sicily
-        if ($mydxcc[7] == '*JW/b') {
-            $mydxcc[7] = "JW";
-        }    # Bear Island
-    }
-
-    return $mydxcc;
-}
-
-###############################################################################
+    ###############################################################################
 #
 # &wpx derives the Prefix following WPX rules from a call. These can be found
 # at: http://www.cq-amateur-radio.com/wpxrules.html
@@ -241,7 +256,7 @@ function wpx($testcall, $i) {
     $c = '';
 
     $lidadditions = '/^QRP|^LGT/';
-    $csadditions = '/^P$|^R$|^A$|^M$/';
+    $csadditions = '/^P$|^R$|^A$|^M$|^LH$|^SK$/';
     $noneadditions = '/^MM$|^AM$/';
 
     # First check if the call is in the proper format, A/B/C where A and C
@@ -371,43 +386,43 @@ function wpx($testcall, $i) {
     }       # no proper callsign received.*/
 }           # wpx ends here
 
+ 
+    /*
+    * Read cty.dat from AD1C
+    */
+    function read_cty() {
+        $file = 'cty.dat';
+        $mainprefix = '';
 
-/*
- * Read cty.dat from AD1C
- */
-function read_cty(&$dxcc, &$fullcalls, &$prefixes) {
-    $file = 'cty.dat';
-    $mainprefix = '';
+        if (is_readable($file)) {
+            $lines = file($file, FILE_IGNORE_NEW_LINES);
 
-    if (is_readable($file)) {
-        $lines = file($file, FILE_IGNORE_NEW_LINES);
-
-        foreach ($lines as $line) {
-            if (substr($line, 0, 1) !== ' ') {            # New DXCC
-                if (preg_match('/\s+([*A-Za-z0-9\/]+):+$/', $line, $matches)) {
-                    $mainprefix = $matches[1];
-                    $dxcc[$mainprefix] = preg_split('/(\s*,*\s*)*:+(\s*,*\s*)*/', $line);
-                }
-            } else {                                        # prefix-line
-
-                # read full calls into separate hash. this hash only
-                # contains the information that this is a full call and
-                # therefore doesn't need to be handled by &wpx even if
-                # it contains a slash
-
-                $line = trim($line);
-                if (preg_match_all('/=([A-Z0-9\/]+)(\(\d+\))?(\[\d+\])?[,;]/', $line, $matches)) {
-                    foreach ($matches[1] as $match) {
-                        $fullcalls[] = $match;
+            foreach ($lines as $line) {
+                if (substr($line, 0, 1) !== ' ') {            # New DXCC
+                    if (preg_match('/\s+([*A-Za-z0-9\/]+):+$/', $line, $matches)) {
+                        $mainprefix = $matches[1];
+                        $this->dxcc[$mainprefix] = preg_split('/(\s*,*\s*)*:+(\s*,*\s*)*/', $line);
                     }
-                }
+                } else {                                        # prefix-line
 
-                # Continue with everything else. Including full calls, which will
-                # be read as normal prefixes.
-                $calls = explode(',', $line);
-                foreach ($calls as $call) {
-                    if (strlen($call) > 0) {
-                        $prefixes[$mainprefix][] = str_replace(';', '', str_replace('=', '', $call));
+                    # read full calls into separate array. This array only
+                    # contains the information that this is a full call
+
+                    $line = trim($line);
+                    if (preg_match_all('/=([A-Z0-9\/]+)(\(\d+\))?(\[\d+\])?[,;]/', $line, $matches)) {
+                        foreach ($matches[1] as $match) {
+                            $this->fullcalls[] = $match;
+                        }
+                    }
+
+                    # Continue with everything else. Including full calls, which will
+                    # be read as normal prefixes.
+
+                    $calls = explode(',', $line);
+                    foreach ($calls as $call) {
+                        if (strlen($call) > 0) {
+                            $this->prefixes[$mainprefix][] = str_replace(';', '', str_replace('=', '', $call));
+                        }
                     }
                 }
             }

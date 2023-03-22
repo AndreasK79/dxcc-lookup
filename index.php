@@ -13,10 +13,14 @@
  * 2023-jan-22
  * V 0.1 beta
  *  - Fixes for /MM and /AM to be DXCC none, since they do not count towards dxcc
+ * 
+ * 2023-mar-22
+ * V 0.2 beta
+ *  - Rewrote to a class instead, so that the constructor can read the cty-file. Better for masslookup.
   * 
  */
 
- include 'dxcc.php' 
+ require_once 'dxcc.php';
  ?>
 <!DOCTYPE html>
 <html>
@@ -113,7 +117,8 @@
             <div class="result">
                 <?php
                 if (isset($_GET['cmd']) && ($_GET['cmd'] == "check")) {
-                    validatecallsign(trim($_POST['callsign']), trim($_POST['mycallsign']));
+                    $dc = new dxcc();
+                    $dc->validatecallsign(trim($_POST['callsign']), trim($_POST['mycallsign']));
                 } ?>
             </div>
         </div>
