@@ -20,7 +20,7 @@ class dxcc {
             $dist = '';
             if ($mycallsign != '' && preg_match('/[0-9A-Za-z\/]/', $mycallsign)) {
                 $mycallresult = $this->dxcc($mycallsign);
-                $dist = $this->qrbqtf($mycallresult[4], $mycallresult[5], $result[4], $result[5]);
+                $dist = $this->qrbqtf($mycallresult[4], $mycallresult[5], $result[4] ?? '', $result[5] ?? '');
             }
             $this->printresult($result, $dist, $callsign, $mycallsign);
         } else {
@@ -33,6 +33,13 @@ class dxcc {
     }
 
     function qrbqtf($mylat, $mylon, $hislat, $hislon) {
+        $result[0] = '';
+        $result[1] = '';
+
+        if ($hislat == '' && $hislon == '') {
+            return $result;
+        }
+
         $PI = 3.14159265;
         $z = 180 / $PI;
 
@@ -87,8 +94,8 @@ class dxcc {
                     <td><?php echo empty($dxccinfo[4]) ? '' : $dxccinfo[4]; ?></td>
                     <td><?php echo empty($dxccinfo[5]) ? '' : $dxccinfo[5]; ?></td>
                     <td><?php echo empty($dxccinfo[6]) ? '' : $dxccinfo[6]; ?></td>
-                    <?php if ($mycallsign) echo '<td>' . round($dist[0], 0) . '</td>'; ?>
-                    <?php if ($mycallsign) echo '<td>' . round($dist[1], 0) . '</td>'; ?>
+                    <?php if ($mycallsign) echo '<td>' . ($dist[0] == '' ? '' : round($dist[0], 0)) . '</td>'; ?>
+                    <?php if ($mycallsign) echo '<td>' . ($dist[1] == '' ? '' : round($dist[1], 0)) . '</td>'; ?>
                 </tr>
             </tbody>
         </table>
@@ -350,8 +357,8 @@ function wpx($testcall, $i) {
                 preg_match('/(.+\d)[A-Z]*/', $b, $matches);     # Known attachment -> like Case 1.1
                 $prefix = $matches[1];
             } elseif (preg_match($noneadditions, $c)) {
-               return '';
-             } elseif (preg_match('/^\d\d+$/', $c)) {            # more than 2 numbers -> ignore
+                return '';
+            } elseif (preg_match('/^\d\d+$/', $c)) {            # more than 2 numbers -> ignore
                 preg_match('/(.+\d)[A-Z]* /', $b, $matches);    # see above
                 $prefix = $matches[1][0];
             } else {                                            # Must be a Prefix!
@@ -377,7 +384,7 @@ function wpx($testcall, $i) {
         # DXCC of the prefix, this will NOT happen when invoked from with an
         # extra parameter $_[1]; this will happen when invoking it from &dxcc.
 
-        if (preg_match('/(\w+\d)[A-Z]+\d/', $prefix, $matches) && $i == null) {
+        if (preg_match('/(\w+\d)[A-Z]+\d/', $prefix, $matches)) {
             $prefix = $matches[1][0];
         }
         return $prefix;
